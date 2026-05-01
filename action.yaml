@@ -1,5 +1,5 @@
-name: SSH tunnel over OutRay
-description: Establishes an OutRay tunnel to the GitHub Action runner for debugging
+name: SSH tunnel over Serveo
+description: Establishes a Serveo tunnel to the GitHub Action runner for debugging
 
 branding:
   icon: minimize-2
@@ -17,36 +17,22 @@ inputs:
   ssh_public_key:
     description: Your SSH public key
     required: true
-  outray_api_key:
-    description: Your OutRay API key (from dashboard settings)
-    required: true
 
 runs:
   using: composite
   steps:
-    - name: Download OutRay
+    - name: Setup SSH
       run: |
-        curl -L -o outray.tar.gz https://github.com/outray-tunnel/outray/releases/latest/download/outray-linux-x64.tar.gz
-        tar xfz outray.tar.gz
-        chmod +x outray
+        mkdir -p ~/.ssh
+        echo "${{ inputs.ssh_public_key }}" >> ~/.ssh/authorized_keys
+        chmod 700 ~/.ssh
+        chmod 600 ~/.ssh/authorized_keys
+        sudo systemctl start ssh
       shell: bash
-    - name: Add ~/.ssh directory
-      run: mkdir -p ~/.ssh
-      shell: bash
-    - name: Add SSH public key to authorized_keys
-      run: echo "${{ inputs.ssh_public_key }}" >> ~/.ssh/authorized_keys
-      shell: bash
-    - name: Fix home directory permissions
-      run: chmod 755 ~
-      shell: bash
-    - run: chmod 600 ~/.ssh/authorized_keys
-      shell: bash
-    - name: Debug message
-      run: echo "Starting OutRay tunnel..."
-      shell: bash
-    - name: Setup OutRay TCP tunnel
-      run: timeout ${{ inputs.timeout }} ./outray tcp ${{ inputs.port }} --key ${{ inputs.outray_api_key }} &
-      shell: bash
-    - name: Debug message
-      run: echo "Tunnel started. Check OutRay dashboard for public URL."
+    - name: Setup Serveo tunnel
+      run: |
+        ssh-keyscan serveo.net >> ~/.ssh/known_hosts
+        timeout ${{ inputs.timeout }} ssh -o StrictHostKeyChecking=no -R 0:localhost:${{ inputs.port }} serveo.net &
+        sleep 5
+        echo "Tunnel started. Check logs above for public URL."
       shell: bash
